@@ -1,0 +1,241 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace MathFormulaConverter
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            while(true)
+            {
+                Console.WriteLine("Enter formula:");
+                string input = Console.ReadLine();
+
+                try
+                {
+                    Console.WriteLine("Calculating...");
+                    Console.WriteLine("Result: " + Calculate(input));
+                }
+                catch
+                {
+                    Console.WriteLine("Error. Please try again.");
+                }
+            }
+        }
+        static public double Calculate(string sum)
+        {
+            List<string> elements = sum.Split(" ",StringSplitOptions.RemoveEmptyEntries).ToList();
+            
+            if(elements.Count()==1)
+            {
+                return (double.TryParse(elements[0],out double output))?output:0;
+            }
+
+            while (elements.Count()!=1)
+            {
+                if(OperatorAvailable("*", elements) && OperatorAvailable("/", elements))
+                {
+                    if(CharacterFirstPosition("*",elements) < CharacterFirstPosition("/", elements))
+                    {
+                        CalculateByOperator("*", elements);
+                    }
+                    else
+                    {
+                        CalculateByOperator("/", elements);
+                    }
+                }
+                else if(OperatorAvailable("*",elements))
+                {
+                    CalculateByOperator("*", elements);
+                }
+                else if (OperatorAvailable("/", elements))
+                {
+                    CalculateByOperator("/", elements);
+                }
+                else if (OperatorAvailable("+", elements) && OperatorAvailable("-", elements))
+                {
+                    if (CharacterFirstPosition("+", elements) < CharacterFirstPosition("-", elements))
+                    {
+                        CalculateByOperator("+", elements);
+                    }
+                    else
+                    {
+                        CalculateByOperator("-", elements);
+                    }
+                }
+                else if (OperatorAvailable("+", elements))
+                {
+                    CalculateByOperator("+", elements);
+                }
+                else if (OperatorAvailable("-", elements))
+                {
+                    CalculateByOperator("-", elements);
+                }
+            }
+
+            return (double.TryParse(elements[0], out double finalOutput)) ? finalOutput : 0;
+        }
+        static public void CalculateByOperator(string calcOperator, List<string> listOfCharacters)
+        {
+            int firstOperandPosition;
+
+            int operatorPosition = CharacterFirstPosition(calcOperator, listOfCharacters);
+
+            string leftOperand = listOfCharacters[operatorPosition - 1];
+            if (leftOperand == ")")
+            {
+                var partialElements = listOfCharacters.GetRange(0, operatorPosition);
+
+                int closeParenthesisPosition = partialElements.Count() - 1;
+                int openParenthesisPosition = FindOpenParenthesisPosition(partialElements, closeParenthesisPosition);
+
+                var toBeConvertedElements = partialElements.GetRange(openParenthesisPosition, closeParenthesisPosition - openParenthesisPosition + 1);
+
+                int removeRange = closeParenthesisPosition - openParenthesisPosition + 1;
+
+                listOfCharacters.RemoveRange(openParenthesisPosition, removeRange);
+
+                listOfCharacters.Insert(openParenthesisPosition, Calculate(JoinStringCollection(toBeConvertedElements, " ")).ToString());
+
+                operatorPosition = operatorPosition - removeRange + 1;
+
+                firstOperandPosition = openParenthesisPosition;
+            }
+            else
+            {
+                firstOperandPosition = operatorPosition - 1;
+            }
+
+            string rightOperand = listOfCharacters[operatorPosition + 1];
+            if (rightOperand == "(")
+            {
+                var partialElements = listOfCharacters.GetRange(operatorPosition + 1, listOfCharacters.Count() - (operatorPosition + 1));
+
+                int openParenthesisPosition = 0;
+                int closeParenthesisPosition = FindCloseParenthesisPosition(partialElements, openParenthesisPosition);
+
+                var toBeConvertedElements = partialElements.GetRange(openParenthesisPosition, closeParenthesisPosition - openParenthesisPosition + 1);
+
+                openParenthesisPosition += operatorPosition + 1;
+                closeParenthesisPosition += operatorPosition + 1;
+
+                listOfCharacters.RemoveRange(openParenthesisPosition, closeParenthesisPosition - openParenthesisPosition + 1);
+
+                listOfCharacters.Insert(openParenthesisPosition, Calculate(JoinStringCollection(toBeConvertedElements, " ")).ToString());
+            }
+
+            double result = 0;
+            switch(calcOperator)
+            {
+                case "*":
+                    result = (double.TryParse(listOfCharacters[firstOperandPosition], out double leftOperandValue1) ? leftOperandValue1 : 0) * (double.TryParse(listOfCharacters[firstOperandPosition + 2], out double rightOperandValue1) ? rightOperandValue1 : 0);
+                    break;
+                case "/":
+                    result = (double.TryParse(listOfCharacters[firstOperandPosition], out double leftOperandValue2) ? leftOperandValue2 : 0) / (double.TryParse(listOfCharacters[firstOperandPosition + 2], out double rightOperandValue2) ? rightOperandValue2 : 0);
+                    break;
+                case "+":
+                    result = (double.TryParse(listOfCharacters[firstOperandPosition], out double leftOperandValue3) ? leftOperandValue3 : 0) + (double.TryParse(listOfCharacters[firstOperandPosition + 2], out double rightOperandValue3) ? rightOperandValue3 : 0);
+                    break;
+                case "-":
+                    result = (double.TryParse(listOfCharacters[firstOperandPosition], out double leftOperandValue4) ? leftOperandValue4 : 0) - (double.TryParse(listOfCharacters[firstOperandPosition + 2], out double rightOperandValue4) ? rightOperandValue4 : 0);
+                    break;
+                default:
+                    result = 0;
+                    break;
+            }
+            listOfCharacters.RemoveRange(firstOperandPosition, 3);
+            listOfCharacters.Insert(firstOperandPosition, result.ToString());
+
+            while(true)
+            {
+                if(listOfCharacters.Count>=3 
+                    && (firstOperandPosition>0 && listOfCharacters[firstOperandPosition-1]=="(")
+                    && (firstOperandPosition<listOfCharacters.Count()-1 && listOfCharacters[firstOperandPosition+1]==")"))
+                {
+                    listOfCharacters.RemoveAt(firstOperandPosition + 1);
+                    listOfCharacters.RemoveAt(firstOperandPosition - 1);
+
+                    firstOperandPosition--;
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+        static public int FindOpenParenthesisPosition(List<string> listOfCharacters, int closeParenthesisPosition)
+        {
+            int listCount = listOfCharacters.Count();
+
+            int x = 1;
+            for(int i= (listCount - 1) - (closeParenthesisPosition - (listCount - 1)) - 1; i>=0;i--)
+            {
+                if(listOfCharacters[i]==")")
+                {
+                    x++;
+                }
+                else if(listOfCharacters[i]=="(")
+                {
+                    x--;
+                }
+
+                if(x==0)
+                {
+                    return i;
+                }
+            }
+            return 0;
+        }
+        static public int FindCloseParenthesisPosition(List<string> listOfCharacters, int openParenthesisPosition)
+        {
+
+            int x = 1;
+            for(int i= openParenthesisPosition+1; i<listOfCharacters.Count();i++)
+            {
+                if(listOfCharacters[i]=="(")
+                {
+                    x++;
+                }
+                else if(listOfCharacters[i]==")")
+                {
+                    x--;
+                }
+
+                if(x==0)
+                {
+                    return i;
+                }
+            }
+            return 0;
+        }
+        static public Boolean OperatorAvailable(string calcOperator,List<string> listOfCharacters)
+        {
+            return (listOfCharacters.IndexOf(calcOperator) == -1) ? false : true;
+        }
+        static public int CharacterFirstPosition(string calcOperator, List<string> listOfCharacters)
+        {
+            return listOfCharacters.IndexOf(calcOperator);
+        }
+        static public int CharacterLastPosition(string calcOperator, List<string> listOfCharacters)
+        {
+            return listOfCharacters.LastIndexOf(calcOperator);
+        }
+        static public string JoinStringCollection(List<string> listOfCharacters, string separator)
+        {
+            string newString = string.Empty;
+
+            foreach(string character in listOfCharacters)
+            {
+                newString += character + separator;
+            }
+            if(!string.IsNullOrEmpty(separator))
+            {
+                newString.Remove(newString.Count()-1,separator.Length);
+            }
+
+            return newString;
+        }
+    }
+}
